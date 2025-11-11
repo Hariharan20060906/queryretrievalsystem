@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Query System</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 100vh; padding: 20px; }
+        .container { max-width: 900px; margin: 0 auto; background: white; padding: 40px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.2); }
+        h1 { color: #333; margin-bottom: 30px; text-align: center; font-size: 2.5em; }
+        .form-group { margin-bottom: 25px; }
+        label { display: block; margin-bottom: 8px; font-weight: 600; color: #555; font-size: 1.1em; }
+        input, textarea { width: 100%; padding: 15px; border: 2px solid #e1e5e9; border-radius: 8px; font-size: 16px; transition: border-color 0.3s; }
+        input:focus, textarea:focus { outline: none; border-color: #667eea; }
+        textarea { height: 120px; resize: vertical; font-family: inherit; }
+        button { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 15px 40px; border: none; border-radius: 8px; cursor: pointer; font-size: 18px; font-weight: 600; transition: transform 0.2s; width: 100%; }
+        button:hover { transform: translateY(-2px); }
+        button:disabled { background: #ccc; cursor: not-allowed; transform: none; }
+        .results { margin-top: 40px; padding: 30px; background: #f8f9fa; border-radius: 10px; border-left: 5px solid #667eea; }
+        .answer { margin-bottom: 25px; padding: 20px; background: white; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .question { font-weight: 600; color: #333; margin-bottom: 10px; font-size: 1.1em; }
+        .response { color: #666; line-height: 1.6; }
+        .loading { text-align: center; color: #667eea; font-size: 1.2em; }
+        .error { color: #dc3545; background: #f8d7da; border-left-color: #dc3545; }
+        .example { background: #e3f2fd; padding: 15px; border-radius: 5px; margin-top: 10px; font-size: 0.9em; color: #1565c0; }
+        .input-tabs { display: flex; margin-bottom: 15px; }
+        .tab-btn { flex: 1; padding: 10px; border: 2px solid #e1e5e9; background: #f8f9fa; cursor: pointer; font-weight: 600; transition: all 0.3s; }
+        .tab-btn:first-child { border-radius: 8px 0 0 8px; }
+        .tab-btn:last-child { border-radius: 0 8px 8px 0; border-left: none; }
+        .tab-btn.active { background: #667eea; color: white; border-color: #667eea; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+        .drop-zone { border: 3px dashed #ccc; border-radius: 10px; padding: 40px; text-align: center; transition: all 0.3s; cursor: pointer; }
+        .drop-zone:hover, .drop-zone.dragover { border-color: #667eea; background: #f0f4ff; }
+        .drop-content { pointer-events: none; }
+        .drop-icon { font-size: 3em; margin-bottom: 15px; }
+        .browse-btn { background: #28a745; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 0; }
+        .browse-btn:hover { background: #218838; }
+        .file-info { background: #d4edda; border: 1px solid #c3e6cb; border-radius: 5px; padding: 15px; margin-top: 15px; }
+        .file-name { font-weight: 600; color: #155724; }
+        .file-size { color: #6c757d; font-size: 0.9em; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📄 PDF Query System</h1>
+        
+        <form id="queryForm">
+            <div class="form-group">
+                <label>PDF Document:</label>
+                <div class="input-tabs">
+                    <button type="button" class="tab-btn active" onclick="switchTab('url')">URL</button>
+                    <button type="button" class="tab-btn" onclick="switchTab('upload')">Upload File</button>
+                </div>
+                
+                <div id="url-tab" class="tab-content active">
+                    <input type="url" id="documentUrl" placeholder="https://example.com/document.pdf">
+                    <div class="example">Example: https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf</div>
+                </div>
+                
+                <div id="upload-tab" class="tab-content">
+                    <div class="drop-zone" id="dropZone">
+                        <div class="drop-content">
+                            <div class="drop-icon">📄</div>
+                            <p>Drag & drop your PDF here</p>
+                            <p>or</p>
+                            <button type="button" class="browse-btn" onclick="document.getElementById('fileInput').click()">Browse Files</button>
+                            <input type="file" id="fileInput" accept=".pdf" style="display: none;">
+                        </div>
+                        <div class="file-info" id="fileInfo" style="display: none;"></div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-group">
+                <label for="questions">Questions (one per line):</label>
+                <textarea id="questions" placeholder="What is this document about?&#10;What are the main topics covered?&#10;Summarize the key points." required></textarea>
+            </div>
+            
+            <button type="submit" id="submitBtn">🔍 Analyze PDF</button>
+        </form>
+        
+        <div id="results" class="results" style="display: none;">
+            <h3>📋 Analysis Results:</h3>
+            <div id="answersContainer"></div>
+        </div>
+    </div>
+
+    <script>
+        let selectedFile = null;
+        
+        function switchTab(tab) {
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(content => content.classList.remove('active'));
+            
+            document.querySelector(`[onclick="switchTab('${tab}')"]`).classList.add('active');
+            document.getElementById(`${tab}-tab`).classList.add('active');
+            
+            selectedFile = null;
+            document.getElementById('fileInfo').style.display = 'none';
+        }
+        
+        // Drag and drop functionality
+        const dropZone = document.getElementById('dropZone');
+        const fileInput = document.getElementById('fileInput');
+        
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            dropZone.classList.add('dragover');
+        });
+        
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('dragover');
+        });
+        
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('dragover');
+            
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+        
+        function handleFile(file) {
+            if (file.type !== 'application/pdf') {
+                alert('Please select a PDF file.');
+                return;
+            }
+            
+            selectedFile = file;
+            const fileInfo = document.getElementById('fileInfo');
+            fileInfo.innerHTML = `
+                <div class="file-name">📄 ${file.name}</div>
+                <div class="file-size">${(file.size / 1024 / 1024).toFixed(2)} MB</div>
+            `;
+            fileInfo.style.display = 'block';
+        }
+        
+        document.getElementById('queryForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const questionsText = document.getElementById('questions').value;
+            const questions = questionsText.split('\n').filter(q => q.trim());
+            
+            if (questions.length === 0) {
+                alert('Please enter at least one question.');
+                return;
+            }
+            
+            const submitBtn = document.getElementById('submitBtn');
+            const resultsDiv = document.getElementById('results');
+            const answersContainer = document.getElementById('answersContainer');
+            
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'Processing PDF...';
+            resultsDiv.style.display = 'block';
+            answersContainer.innerHTML = '<div class="loading">Analyzing PDF and generating answers...</div>';
+            
+            try {
+                let requestData;
+                
+                if (document.getElementById('url-tab').classList.contains('active')) {
+                    // URL mode
+                    const documentUrl = document.getElementById('documentUrl').value;
+                    if (!documentUrl) {
+                        throw new Error('Please enter a PDF URL.');
+                    }
+                    requestData = {
+                        documents: documentUrl,
+                        questions: questions
+                    };
+                    
+                    const response = await fetch('/api/v1/hackrx/run', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || `HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    displayResults(data.answers, questions);
+                    
+                } else {
+                    // File upload mode
+                    if (!selectedFile) {
+                        throw new Error('Please select a PDF file.');
+                    }
+                    
+                    const formData = new FormData();
+                    formData.append('file', selectedFile);
+                    formData.append('questions', JSON.stringify(questions));
+                    
+                    const response = await fetch('/api/v1/upload', {
+                        method: 'POST',
+                        body: formData
+                    });
+                    
+                    if (!response.ok) {
+                        const errorData = await response.json();
+                        throw new Error(errorData.detail || `HTTP ${response.status}`);
+                    }
+                    
+                    const data = await response.json();
+                    displayResults(data.answers, questions);
+                }
+                
+            } catch (error) {
+                answersContainer.innerHTML = `
+                    <div class="answer error">
+                        <div class="question">Error:</div>
+                        <div class="response">${error.message}</div>
+                    </div>
+                `;
+            } finally {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Analyze PDF';
+            }
+        });
+        
+        function displayResults(answers, questions) {
+            const answersContainer = document.getElementById('answersContainer');
+            answersContainer.innerHTML = '';
+            answers.forEach((answer, index) => {
+                const answerDiv = document.createElement('div');
+                answerDiv.className = 'answer';
+                answerDiv.innerHTML = `
+                    <div class="question">Q${index + 1}: ${questions[index]}</div>
+                    <div class="response">${answer}</div>
+                `;
+                answersContainer.appendChild(answerDiv);
+            });
+        }
+    </script>
+</body>
+</html>
