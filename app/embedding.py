@@ -5,11 +5,16 @@ from langchain.text_splitter import RecursiveCharacterTextSplitter
 from app.loader import load_file
 import os
 
-# Use a public model compatible with Groq or basic transformer embeddings
+# ⚡ Singleton pattern: Load embedding model once and reuse
+_embedding_model = None
+
 def get_embedding_model():
-    return HuggingFaceEmbeddings(
-        model_name="sentence-transformers/all-MiniLM-L6-v2"
-    )
+    global _embedding_model
+    if _embedding_model is None:
+        _embedding_model = HuggingFaceEmbeddings(
+            model_name="sentence-transformers/all-MiniLM-L6-v2"
+        )
+    return _embedding_model
 
 # Load and chunk any document
 def load_document(file_path):
@@ -20,9 +25,10 @@ def load_document(file_path):
     else:
         full_text = raw_chunks
 
+    # ⚡ Optimized: Smaller chunks = faster processing
     text_splitter = RecursiveCharacterTextSplitter(
-        chunk_size=1000,
-        chunk_overlap=100
+        chunk_size=600,  # Reduced from 1000
+        chunk_overlap=80  # Reduced from 100
     )
 
     docs = text_splitter.create_documents(

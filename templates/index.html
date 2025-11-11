@@ -140,6 +140,9 @@
                     formData.append('file', selectedFile);
                     formData.append('questions', JSON.stringify(questions));
                     
+                    // ⚡ Show processing message
+                    answersContainer.innerHTML = '<div class="answer" style="color: #3498db; font-style: italic;">⏳ Processing document (15-30s): Extracting text → Creating embeddings → Querying LLM...</div>';
+                    
                     // Add timeout controller for long-running requests
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
@@ -160,6 +163,9 @@
                     }
                 } else {
                     // Use URL endpoint
+                    // ⚡ Show processing message
+                    answersContainer.innerHTML = '<div class="answer" style="color: #3498db; font-style: italic;">⏳ Processing document (15-30s): Extracting text → Creating embeddings → Querying LLM...</div>';
+                    
                     const controller = new AbortController();
                     const timeoutId = setTimeout(() => controller.abort(), 120000); // 120 second timeout
                     

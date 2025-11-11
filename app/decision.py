@@ -36,7 +36,8 @@ GOOD: "Passwords must be at least 8 characters long, contain uppercase, lowercas
 """
 
 def evaluate_with_llm(query: str, vectorstore):
-    relevant_docs = search_vectorstore(vectorstore, query, k=8)
+    # ⚡ Optimized: Reduced from k=8 to k=5 for faster processing
+    relevant_docs = search_vectorstore(vectorstore, query, k=5)
     context = "\n\n".join([doc.page_content for doc in relevant_docs])
 
     prompt = ChatPromptTemplate.from_messages([
